@@ -6,3 +6,7 @@ out/
 *.log
 .DS_Store
 scratch/
+
+# tesseract.js caches its language model in the working directory
+eng.traineddata
+*.traineddata
