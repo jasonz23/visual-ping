@@ -1,0 +1,39 @@
+{
+  "name": "visualping-crawler-challenge",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Two-phase crawler (harvest + extract) that recovers hidden passwords from the Visualping crawler challenge site.",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "crawl": "tsx src/cli.ts crawl",
+    "extract": "tsx src/cli.ts extract",
+    "run": "tsx src/cli.ts run",
+    "report": "tsx src/cli.ts report",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint . --max-warnings=0",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "check": "npm run lint && npm run format:check && npm run build && npm run test"
+  },
+  "dependencies": {
+    "exifr": "^7.1.3",
+    "fflate": "^0.8.2",
+    "pdfjs-dist": "^4.10.38",
+    "playwright": "^1.55.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.20.0",
+    "@types/node": "^22.13.0",
+    "eslint": "^9.20.0",
+    "eslint-config-prettier": "^10.0.1",
+    "prettier": "^3.4.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3",
+    "typescript-eslint": "^8.23.0",
+    "vitest": "^3.0.5"
+  }
+}

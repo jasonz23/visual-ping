@@ -1,0 +1,6 @@
+node_modules/
+dist/
+artifacts/
+out/
+package-lock.json
+tests/fixtures/
