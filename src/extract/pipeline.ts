@@ -7,7 +7,7 @@
  */
 import type { Logger } from '../logging.js';
 import type { ArtifactStore } from '../store/artifactStore.js';
-import type { ArtifactRecord, PasswordHit } from '../types.js';
+import type { PasswordHit } from '../types.js';
 import type { ExtractorRegistry } from './registry.js';
 import { dedupeHits } from './hit.js';
 
@@ -171,8 +171,4 @@ function specificity(hit: PasswordHit): number {
 
 function message(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
-}
-
-export function recordLabel(record: ArtifactRecord): string {
-  return `${record.kind}:${record.url}`;
 }

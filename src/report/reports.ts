@@ -6,7 +6,6 @@ import type { ExtractionReport } from '../extract/pipeline.js';
 import { bestHitPerPassword } from '../extract/pipeline.js';
 import type { ExtractorRegistry } from '../extract/registry.js';
 import type { HarvestSummary } from '../harvest/harvester.js';
-import type { ArtifactRecord, PasswordHit } from '../types.js';
 
 export interface PasswordsFile {
   generatedAt: string;
@@ -333,9 +332,3 @@ function short(url: string): string {
 function escapePipes(text: string): string {
   return text.replace(/\|/g, '\\|').replace(/\n/g, ' ');
 }
-
-export function summarizeArtifacts(records: readonly ArtifactRecord[]): Map<string, number> {
-  return countBy(records, (record) => record.mimeType);
-}
-
-export type { PasswordHit };

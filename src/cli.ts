@@ -14,6 +14,7 @@ import { Harvester } from './harvest/harvester.js';
 import type { HarvestSummary } from './harvest/harvester.js';
 import { buildRegistry } from './extract/index.js';
 import { extractAll } from './extract/pipeline.js';
+import { shutdownOcr } from './extract/handlers/ocr.js';
 import { writeCrawlReport, writePasswordsJson } from './report/reports.js';
 import { EXAMPLE_PASSWORD } from './util/password.js';
 
@@ -60,13 +61,19 @@ async function main(): Promise<number> {
   if (command === 'crawl') return 0;
 
   const registry = buildRegistry();
-  const extraction = await extractAll(store, registry, log, {
-    onNewPassword: (password, hit, total) => {
-      process.stdout.write(
-        `[${String(total).padStart(2, ' ')}/${TARGET_PASSWORD_COUNT}] ${password}  ←  ${hit.method}  @ ${hit.sourceUrl}\n`,
-      );
-    },
-  });
+  let extraction;
+  try {
+    extraction = await extractAll(store, registry, log, {
+      onNewPassword: (password, hit, total) => {
+        process.stdout.write(
+          `[${String(total).padStart(2, ' ')}/${TARGET_PASSWORD_COUNT}] ${password}  ←  ${hit.method}  @ ${hit.sourceUrl}\n`,
+        );
+      },
+    });
+  } finally {
+    // The OCR worker is a child process; release it whether or not we succeeded.
+    await shutdownOcr();
+  }
 
   const passwords = await writePasswordsJson(config.outDir, config.baseUrl, extraction);
   await writeCrawlReport(config.outDir, {
