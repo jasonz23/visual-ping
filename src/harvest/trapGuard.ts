@@ -11,7 +11,7 @@
  * producing novelty:
  *
  *  - structural novelty — pages of the template all reduce to the same shape hash
- *    (the body with digits and hex runs masked), and
+ *    (see `shapeHash`), and
  *  - link novelty — the template's pages have stopped linking anywhere outside it.
  *
  * Both must hold across a sample before a template is closed, and a hard per-
@@ -151,16 +151,34 @@ export function templateKey(url: string): string {
 }
 
 /**
- * Fingerprint a page's *structure* rather than its content: mask digits and long
- * hex runs, drop whitespace, and hash. Two paginated pages of the same table
- * collapse to the same value; two genuinely different articles do not.
+ * Fingerprint a page's *structure* rather than its content.
+ *
+ * For markup this is the sequence of tag names with consecutive repeats collapsed,
+ * which is what actually distinguishes "another page of the same table" from "a
+ * different kind of page". Hashing the text instead does not work here: the target
+ * column of the monitoring report varies by *words*, not digits, so every page of
+ * a single paginated table would otherwise hash differently and the generator
+ * would never be recognised as one.
+ *
+ * Non-markup bodies fall back to masked text (digits and long hex runs replaced),
+ * which is the right signal for a generated JSON or CSV feed.
  */
 export function shapeHash(body: Buffer): string {
-  const text = body
-    .toString('utf8')
+  const text = body.toString('utf8');
+  const tags = [...text.matchAll(/<([a-zA-Z][\w-]*)/g)].map((match) =>
+    (match[1] ?? '').toLowerCase(),
+  );
+  if (tags.length >= 4) {
+    const collapsed: string[] = [];
+    for (const tag of tags) {
+      if (collapsed[collapsed.length - 1] !== tag) collapsed.push(tag);
+    }
+    return sha256(`tags:${collapsed.join(' ')}`);
+  }
+  const masked = text
     .replace(/[0-9a-f]{6,}/gi, '#')
     .replace(/\d+/g, '#')
     .replace(/\s+/g, ' ')
     .trim();
-  return sha256(text);
+  return sha256(`text:${masked}`);
 }

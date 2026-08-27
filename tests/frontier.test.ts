@@ -118,6 +118,26 @@ describe('shapeHash', () => {
     expect(shapeHash(a)).toBe(shapeHash(b));
   });
 
+  it('collapses paginated table pages whose cells differ by words, not digits', () => {
+    // The monitoring report's target column varies by hostname, so masking digits
+    // alone is not enough — the fingerprint has to be the tag structure.
+    const a = Buffer.from(
+      '<table><tbody><tr><td>VP-a1</td><td>https://blog.example/careers</td></tr></tbody></table>',
+    );
+    const b = Buffer.from(
+      '<table><tbody><tr><td>VP-b2</td><td>https://support.example/pricing</td></tr></tbody></table>',
+    );
+    expect(shapeHash(a)).toBe(shapeHash(b));
+  });
+
+  it('separates a table page from an article page', () => {
+    const table = Buffer.from('<main><h1>R</h1><table><tr><td>x</td></tr></table></main>');
+    const article = Buffer.from(
+      '<main><h1>R</h1><p>a</p><section><ul><li>b</li></ul></section></main>',
+    );
+    expect(shapeHash(table)).not.toBe(shapeHash(article));
+  });
+
   it('separates structurally different pages', () => {
     expect(shapeHash(Buffer.from('<h1>Docs</h1>'))).not.toBe(
       shapeHash(Buffer.from('<table></table>')),

@@ -20,7 +20,7 @@ built.
 
 ```bash
 npm install
-npx playwright install chromium
+npx playwright install chromium   # ~95 MB, once
 
 cp .env.example .env      # then fill in VP_USERNAME / VP_PASSWORD
 npm run run               # crawl, extract, write reports
@@ -33,6 +33,11 @@ npm run crawl     # phase 1 only — fill ./artifacts
 npm run extract   # phase 2 only — scan ./artifacts, write ./out
 npm run report    # re-render ./out from the existing store
 ```
+
+The OCR extractor downloads its English model on first use and caches it; that
+one step needs outbound network beyond the target host. If it is unavailable the
+extractor degrades to a no-op and says so in the coverage matrix rather than
+failing the run.
 
 Quality gates:
 
@@ -292,7 +297,7 @@ provenance, trap-guard saturation, and artifact-store dedupe/resume.
 | 1   | `/notes/diff-socket-socket/`      | HTML comment                                               |
 | 2   | `/wiki/detect-embed/`             | `data-vp-archive` attribute on `<body>`                    |
 | 3   | `/products/filter-gateway/`       | `X-Provisioning-Note` response header                      |
-| 4   | `/static/js/analytics.js`         | JS source comment                                          |
+| 4   | `/static/js/analytics.js`         | hard-coded JS string literal                               |
 | 5   | `/static/js/theme-switcher.js`    | character-code array passed to `String.fromCharCode.apply` |
 | 6   | `/static/img/field-visit.jpg`     | EXIF `UserComment`, UTF-16 behind a `UNICODE` marker       |
 | 7   | `/static/img/whiteboard-scan.png` | text drawn into the pixels — OCR only                      |
