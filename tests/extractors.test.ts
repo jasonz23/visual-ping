@@ -150,6 +150,12 @@ describe('JavaScript channels', () => {
     expect(extractorsFor(hits, FAKE.jsComment)).toContain('javascript');
   });
 
+  it('reports a hard-coded string literal as a string literal, not just raw bytes', async () => {
+    const js = `var ADMIN_PASSWORD = '${FAKE.jsComment}'; // rotate me`;
+    const hits = await run(Buffer.from(js), { mimeType: 'application/javascript' });
+    expectMethod(hits, FAKE.jsComment, 'javascript', 'quoted string literal');
+  });
+
   it('decodes a character-code array', async () => {
     const codes = [...FAKE.jsComment].map((char) => char.charCodeAt(0)).join(', ');
     const js = `var beacon = [${codes}];\nString.fromCharCode.apply(null, beacon);`;

@@ -13,6 +13,8 @@ const CHAR_CODE_CALL = /String\.fromCharCode\(([\d\s,]+)\)/g;
 /** Any numeric array literal — `String.fromCharCode.apply(null, arr)` is common. */
 const NUMERIC_ARRAY = /\[\s*(\d{1,3}(?:\s*,\s*\d{1,3}){9,})\s*\]/g;
 const CONCAT_RUN = /(?:['"][^'"\n]{0,40}['"]\s*\+\s*){2,}['"][^'"\n]{0,40}['"]/g;
+/** A single quoted string literal, so a hard-coded secret is reported as one. */
+const STRING_LITERAL = /(['"`])((?:\\.|(?!\1)[^\\\n])*)\1/g;
 
 function isJavaScript(mimeType: string): boolean {
   return /javascript|ecmascript/i.test(mimeType);
@@ -75,6 +77,17 @@ export const javascriptExtractor: Extractor = {
           artifactPath: ctx.bodyPath,
           extractor: 'javascript',
           method: `String.fromCharCode() payload (${where})`,
+        }),
+      );
+    }
+
+    for (const match of text.matchAll(STRING_LITERAL)) {
+      hits.push(
+        ...scanText(match[2] ?? '', {
+          record: ctx.record,
+          artifactPath: ctx.bodyPath,
+          extractor: 'javascript',
+          method: `quoted string literal (${where})`,
         }),
       );
     }
