@@ -129,7 +129,17 @@ export interface Mp4Atom {
 /** Walk ISO-BMFF boxes and return the text payloads of metadata atoms. */
 export function readMp4TextAtoms(body: Buffer): Mp4Atom[] {
   const atoms: Mp4Atom[] = [];
-  const interesting = new Set(['udta', 'meta', 'ilst', 'data', '©nam', '©cmt', '©too', 'desc', 'name']);
+  const interesting = new Set([
+    'udta',
+    'meta',
+    'ilst',
+    'data',
+    '©nam',
+    '©cmt',
+    '©too',
+    'desc',
+    'name',
+  ]);
 
   const walk = (start: number, end: number, depth: number): void => {
     if (depth > 6) return;

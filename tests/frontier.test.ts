@@ -12,7 +12,12 @@ describe('Frontier', () => {
       frontier.add({ rawUrl: '/docs/', discoveredFrom: HOME, source: 'anchor', depth: 0 }),
     ).toBe(true);
     expect(
-      frontier.add({ rawUrl: '/docs/?utm_source=x', discoveredFrom: HOME, source: 'img', depth: 0 }),
+      frontier.add({
+        rawUrl: '/docs/?utm_source=x',
+        discoveredFrom: HOME,
+        source: 'img',
+        depth: 0,
+      }),
     ).toBe(false);
 
     expect(frontier.stats.known).toBe(1);
@@ -24,7 +29,12 @@ describe('Frontier', () => {
   it('refuses off-host URLs and counts them', () => {
     const frontier = new Frontier(HOST);
     expect(
-      frontier.add({ rawUrl: 'http://evil.test/x', discoveredFrom: HOME, source: 'anchor', depth: 0 }),
+      frontier.add({
+        rawUrl: 'http://evil.test/x',
+        discoveredFrom: HOME,
+        source: 'anchor',
+        depth: 0,
+      }),
     ).toBe(false);
     expect(frontier.stats.offHost).toBe(1);
     expect(frontier.stats.known).toBe(0);
@@ -33,7 +43,12 @@ describe('Frontier', () => {
   it('refuses unusable references and counts them separately', () => {
     const frontier = new Frontier(HOST);
     expect(
-      frontier.add({ rawUrl: 'javascript:void(0)', discoveredFrom: HOME, source: 'anchor', depth: 0 }),
+      frontier.add({
+        rawUrl: 'javascript:void(0)',
+        discoveredFrom: HOME,
+        source: 'anchor',
+        depth: 0,
+      }),
     ).toBe(false);
     expect(frontier.stats.unusable).toBe(1);
   });
@@ -53,9 +68,9 @@ describe('Frontier', () => {
   it('does not re-enqueue a URL marked visited by a resumed run', () => {
     const frontier = new Frontier(HOST);
     frontier.markVisited('http://54.214.7.161/a/');
-    expect(
-      frontier.add({ rawUrl: '/a/', discoveredFrom: HOME, source: 'anchor', depth: 0 }),
-    ).toBe(false);
+    expect(frontier.add({ rawUrl: '/a/', discoveredFrom: HOME, source: 'anchor', depth: 0 })).toBe(
+      false,
+    );
     expect(frontier.stats.pending).toBe(0);
   });
 
@@ -65,20 +80,20 @@ describe('Frontier', () => {
     const page = (n: number) => `http://54.214.7.161/report/?page=${n}`;
 
     for (let n = 1; n <= 3; n += 1) {
-      expect(frontier.add({ rawUrl: page(n), discoveredFrom: HOME, source: 'anchor', depth: 0 })).toBe(
-        true,
-      );
+      expect(
+        frontier.add({ rawUrl: page(n), discoveredFrom: HOME, source: 'anchor', depth: 0 }),
+      ).toBe(true);
       guard.observe(page(n), Buffer.from(`<table><tr><td>row ${n * 7}</td></tr></table>`), 0);
     }
 
-    expect(frontier.add({ rawUrl: page(4), discoveredFrom: HOME, source: 'anchor', depth: 0 })).toBe(
-      false,
-    );
+    expect(
+      frontier.add({ rawUrl: page(4), discoveredFrom: HOME, source: 'anchor', depth: 0 }),
+    ).toBe(false);
     expect(frontier.stats.trapped).toBe(1);
     // A different template is unaffected.
-    expect(frontier.add({ rawUrl: '/docs/', discoveredFrom: HOME, source: 'anchor', depth: 0 })).toBe(
-      true,
-    );
+    expect(
+      frontier.add({ rawUrl: '/docs/', discoveredFrom: HOME, source: 'anchor', depth: 0 }),
+    ).toBe(true);
   });
 });
 
@@ -104,7 +119,9 @@ describe('shapeHash', () => {
   });
 
   it('separates structurally different pages', () => {
-    expect(shapeHash(Buffer.from('<h1>Docs</h1>'))).not.toBe(shapeHash(Buffer.from('<table></table>')));
+    expect(shapeHash(Buffer.from('<h1>Docs</h1>'))).not.toBe(
+      shapeHash(Buffer.from('<table></table>')),
+    );
   });
 });
 

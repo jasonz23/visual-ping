@@ -252,7 +252,11 @@ export function findTrailingBytes(body: Buffer): TrailingBytes | null {
   if (body.subarray(0, 3).toString('latin1') === 'GIF') {
     const trailer = body.lastIndexOf(0x3b);
     if (trailer !== -1 && trailer + 1 < body.length) {
-      return { marker: 'GIF trailer', bytes: body.length - trailer - 1, data: body.subarray(trailer + 1) };
+      return {
+        marker: 'GIF trailer',
+        bytes: body.length - trailer - 1,
+        data: body.subarray(trailer + 1),
+      };
     }
   }
   return null;
@@ -291,7 +295,7 @@ export function decodeMetadataValue(value: unknown): Array<[string, string]> {
 function asBytes(value: unknown): Buffer | null {
   if (value instanceof Uint8Array) return Buffer.from(value);
   if (Array.isArray(value) && value.every((item) => typeof item === 'number')) {
-    return Buffer.from(value as number[]);
+    return Buffer.from(value);
   }
   if (value && typeof value === 'object') {
     const entries = Object.entries(value as Record<string, unknown>);

@@ -19,6 +19,11 @@ export default tseslint.config(
     },
   },
   {
+    // The flat config itself is plain JS and is not part of the TS program.
+    files: ['eslint.config.js', 'vitest.config.ts'],
+    ...tseslint.configs.disableTypeChecked,
+  },
+  {
     files: ['tests/**/*.ts'],
     rules: { '@typescript-eslint/no-unsafe-member-access': 'off' },
   },

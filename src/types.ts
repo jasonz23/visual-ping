@@ -81,11 +81,7 @@ export interface ArtifactRecord {
 }
 
 export type ArtifactKind =
-  | 'response'
-  | 'rendered-dom'
-  | 'storage'
-  | 'derived'
-  | 'accessibility-text';
+  'response' | 'rendered-dom' | 'storage' | 'derived' | 'accessibility-text';
 
 /** A password hit produced by an extractor. */
 export interface PasswordHit {

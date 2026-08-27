@@ -11,7 +11,10 @@ export interface Logger {
   child(bindings: Record<string, unknown>): Logger;
 }
 
-export function createLogger(level: LogLevel = 'info', bindings: Record<string, unknown> = {}): Logger {
+export function createLogger(
+  level: LogLevel = 'info',
+  bindings: Record<string, unknown> = {},
+): Logger {
   const threshold = ORDER[level];
 
   const emit = (lvl: LogLevel, msg: string, fields?: Record<string, unknown>): void => {

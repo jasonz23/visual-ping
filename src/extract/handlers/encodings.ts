@@ -102,7 +102,10 @@ export const percentAndEntityExtractor: Extractor = {
     const variants: Array<[string, string]> = [];
     if (text.includes('%')) {
       try {
-        variants.push(['percent-decoded', decodeURIComponent(text.replace(/%(?![0-9a-fA-F]{2})/g, '%25'))]);
+        variants.push([
+          'percent-decoded',
+          decodeURIComponent(text.replace(/%(?![0-9a-fA-F]{2})/g, '%25')),
+        ]);
       } catch {
         /* malformed sequences: fall through to the other variants */
       }
@@ -148,7 +151,9 @@ export const dataUriExtractor: Extractor = {
       const payload = match[4] ?? '';
       let decoded: Buffer;
       try {
-        decoded = isBase64 ? Buffer.from(payload, 'base64') : Buffer.from(decodeURIComponent(payload));
+        decoded = isBase64
+          ? Buffer.from(payload, 'base64')
+          : Buffer.from(decodeURIComponent(payload));
       } catch {
         continue;
       }
@@ -161,7 +166,12 @@ export const dataUriExtractor: Extractor = {
         }),
       );
       hits.push(
-        ...scanDecompressed(decoded, ctx, 'data-uri', `data: URI payload (${mediaType}) decompressed`),
+        ...scanDecompressed(
+          decoded,
+          ctx,
+          'data-uri',
+          `data: URI payload (${mediaType}) decompressed`,
+        ),
       );
     }
     return hits;

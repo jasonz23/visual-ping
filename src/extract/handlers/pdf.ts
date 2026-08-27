@@ -3,6 +3,7 @@
  * files, and Flate-compressed object streams (where text hides from `strings`).
  */
 import { inflateSync } from 'node:zlib';
+import type * as PdfJs from 'pdfjs-dist/legacy/build/pdf.mjs';
 import type { Extractor, PasswordHit } from '../../types.js';
 import { scanText } from '../hit.js';
 
@@ -80,7 +81,7 @@ async function parseWithPdfjs(ctx: {
   record: Parameters<typeof scanText>[1]['record'];
 }): Promise<PasswordHit[]> {
   const hits: PasswordHit[] = [];
-  let pdfjs: typeof import('pdfjs-dist/legacy/build/pdf.mjs');
+  let pdfjs: typeof PdfJs;
   try {
     pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
   } catch {
@@ -109,9 +110,10 @@ async function parseWithPdfjs(ctx: {
           method: 'PDF document Info dictionary',
         }),
       );
-      const xmp = metadata.metadata?.getRaw?.() ?? '';
+      // pdfjs types `getRaw()` loosely; coerce rather than trust it.
+      const xmp = String(metadata.metadata?.getRaw() ?? '');
       hits.push(
-        ...scanText(String(xmp), {
+        ...scanText(xmp, {
           record: ctx.record,
           artifactPath: ctx.bodyPath,
           extractor: 'pdf',

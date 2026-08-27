@@ -6,11 +6,11 @@
  * so subresource requests (images, CSS, fonts, XHR) carry Basic credentials too.
  */
 import { chromium } from 'playwright';
-import type { Browser, BrowserContext, Page, Response } from 'playwright';
+import type { Browser, BrowserContext, Frame, Page, Request, Response } from 'playwright';
 import type { AppConfig } from '../config.js';
 import type { Logger } from '../logging.js';
 import type { ArtifactRecord, DiscoverySource, FrontierEntry } from '../types.js';
-import { ArtifactStore } from '../store/artifactStore.js';
+import type { ArtifactStore } from '../store/artifactStore.js';
 import { Frontier } from '../store/frontier.js';
 import type { FrontierStats } from '../store/frontier.js';
 import { canonicalKey, findUrlLiterals, isSameHost, normalizeUrl } from '../util/url.js';
@@ -30,7 +30,12 @@ export interface HarvestSummary {
   captured: number;
   errors: HarvestError[];
   frontier: FrontierStats;
-  discoveryLog: readonly { key: string; source: DiscoverySource; discoveredFrom: string; detail?: string }[];
+  discoveryLog: readonly {
+    key: string;
+    source: DiscoverySource;
+    discoveredFrom: string;
+    detail?: string;
+  }[];
   formsSkipped: { url: string; method: string; action: string }[];
   /** Per-template crawl statistics, including any saturated (trap) templates. */
   templates: TemplateStats[];
@@ -185,7 +190,10 @@ export class Harvester {
     } catch (error) {
       const message = errorMessage(error);
       this.errors.push({ url: entry.url, message, phase: 'navigate' });
-      log.warn('navigation failed; falling back to direct fetch', { url: entry.url, error: message });
+      log.warn('navigation failed; falling back to direct fetch', {
+        url: entry.url,
+        error: message,
+      });
       await this.fetchViaApi(entry.url, entry);
       return;
     }
@@ -233,7 +241,11 @@ export class Harvester {
         fromCache: false,
         fetchedAt: new Date().toISOString(),
         kind: 'rendered-dom',
-        discovery: { source: entry.source, discoveredFrom: entry.discoveredFrom, detail: entry.detail },
+        discovery: {
+          source: entry.source,
+          discoveredFrom: entry.discoveredFrom,
+          detail: entry.detail,
+        },
       });
     }
 
@@ -332,7 +344,7 @@ export class Harvester {
     if (snapshot.clickables.length === 0) return;
     const discovered = new Set<string>();
 
-    const onRequest = (request: import('playwright').Request): void => {
+    const onRequest = (request: Request): void => {
       if (!request.isNavigationRequest()) return;
       const url = request.url();
       if (url !== pageUrl) discovered.add(url);
@@ -341,7 +353,7 @@ export class Harvester {
       discovered.add(popup.url());
       void popup.close().catch(() => undefined);
     };
-    const onFrameNavigated = (frame: import('playwright').Frame): void => {
+    const onFrameNavigated = (frame: Frame): void => {
       if (frame === page.mainFrame() && frame.url() !== pageUrl) discovered.add(frame.url());
     };
 
@@ -365,9 +377,8 @@ export class Harvester {
         try {
           await page.evaluate((index: number) => {
             const list = (window as unknown as { __vpClickables?: Element[] }).__vpClickables ?? [];
-            const element = list[index];
-            if (!element) return;
-            (element as HTMLElement).click();
+            const element = list[index] as HTMLElement | undefined;
+            element?.click();
           }, candidate.index);
           await page.waitForTimeout(30);
         } catch (error) {
@@ -412,10 +423,7 @@ export class Harvester {
             const field = element as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
             if (!field.name || field.disabled) continue;
             if (field instanceof HTMLInputElement) {
-              if (
-                (field.type === 'checkbox' || field.type === 'radio') &&
-                !(field as HTMLInputElement).checked
-              ) {
+              if ((field.type === 'checkbox' || field.type === 'radio') && !field.checked) {
                 continue;
               }
               if (field.type === 'submit' || field.type === 'button' || field.type === 'file') {
@@ -453,7 +461,9 @@ export class Harvester {
   }
 
   private async enqueueCookies(pageUrl: string): Promise<void> {
-    const cookies = await this.mustContext().cookies(pageUrl).catch(() => []);
+    const cookies = await this.mustContext()
+      .cookies(pageUrl)
+      .catch(() => []);
     if (cookies.length === 0) return;
     await this.persist(Buffer.from(JSON.stringify(cookies, null, 2), 'utf8'), {
       url: `${pageUrl}#cookies`,
@@ -531,7 +541,9 @@ export class Harvester {
    */
   private attachResponseListener(page: Page): void {
     page.on('response', (response) => {
-      this.saveChain = this.saveChain.then(() => this.saveResponse(response)).catch(() => undefined);
+      this.saveChain = this.saveChain
+        .then(() => this.saveResponse(response))
+        .catch(() => undefined);
     });
   }
 
@@ -552,7 +564,8 @@ export class Harvester {
       // server chose to send. Re-request it with redirects disabled so nothing the
       // server produced goes unexamined.
       this.log.debug('response body unavailable', { url, status, error: errorMessage(error) });
-      body = status >= 300 && status < 400 ? await this.fetchBodyWithoutRedirects(url) : Buffer.alloc(0);
+      body =
+        status >= 300 && status < 400 ? await this.fetchBodyWithoutRedirects(url) : Buffer.alloc(0);
     }
 
     await this.persist(body, {

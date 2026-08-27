@@ -90,7 +90,9 @@ export function renderCrawlReport(input: CrawlReportInput): string {
     const stats = harvest.frontier;
     lines.push(`- URLs discovered (unique, canonicalized): **${stats.known}**`);
     lines.push(`- URLs dequeued and processed: **${stats.visited}**`);
-    lines.push(`- URLs left pending at exit: **${stats.pending}** ${stats.pending === 0 ? '(frontier exhausted)' : '(BUDGET STOP — not exhausted)'}`);
+    lines.push(
+      `- URLs left pending at exit: **${stats.pending}** ${stats.pending === 0 ? '(frontier exhausted)' : '(BUDGET STOP — not exhausted)'}`,
+    );
     lines.push(`- Discovery events recorded (incl. repeat discoveries): ${stats.discoveries}`);
     lines.push(`- Off-host links skipped: ${stats.offHost}`);
     lines.push(`- Unusable / non-HTTP links skipped: ${stats.unusable}`);
@@ -100,7 +102,9 @@ export function renderCrawlReport(input: CrawlReportInput): string {
       lines.push(`- Non-GET forms deliberately not submitted: ${harvest.formsSkipped.length}`);
     }
   } else {
-    lines.push('_No harvest was run in this invocation; the report describes the stored artifacts._');
+    lines.push(
+      '_No harvest was run in this invocation; the report describes the stored artifacts._',
+    );
   }
   lines.push('');
 
@@ -124,7 +128,9 @@ export function renderCrawlReport(input: CrawlReportInput): string {
         'and stopped linking outside themselves — an unbounded generator, not a frontier.',
     );
     lines.push('');
-    lines.push('| Template | Enqueued | Fetched | Distinct shapes | Outbound novelty | Saturated |');
+    lines.push(
+      '| Template | Enqueued | Fetched | Distinct shapes | Outbound novelty | Saturated |',
+    );
     lines.push('| --- | ---: | ---: | ---: | ---: | --- |');
     for (const template of harvest.templates.slice(0, 40)) {
       lines.push(
@@ -187,7 +193,9 @@ export function renderCrawlReport(input: CrawlReportInput): string {
     byMime.set(record.mimeType, entry);
   }
   for (const [mime, entry] of [...byMime.entries()].sort((a, b) => b[1].count - a[1].count)) {
-    lines.push(`| \`${mime}\` | ${entry.count} | ${entry.bodies.size} | ${entry.bytes.toLocaleString('en-US')} |`);
+    lines.push(
+      `| \`${mime}\` | ${entry.count} | ${entry.bodies.size} | ${entry.bytes.toLocaleString('en-US')} |`,
+    );
   }
   lines.push('');
 
@@ -211,7 +219,9 @@ export function renderCrawlReport(input: CrawlReportInput): string {
   lines.push('');
   lines.push('| Status | Count |');
   lines.push('| ---: | ---: |');
-  for (const [status, count] of sortedEntries(countBy(records, (record) => String(record.status)))) {
+  for (const [status, count] of sortedEntries(
+    countBy(records, (record) => String(record.status)),
+  )) {
     lines.push(`| ${status} | ${count} |`);
   }
   lines.push('');
@@ -277,7 +287,9 @@ export function renderCrawlReport(input: CrawlReportInput): string {
     lines.push('| Artifact | Extractor | Message |');
     lines.push('| --- | --- | --- |');
     for (const error of extraction.errors.slice(0, 100)) {
-      lines.push(`| \`${error.artifact}\` | \`${error.extractor}\` | ${escapePipes(error.message)} |`);
+      lines.push(
+        `| \`${error.artifact}\` | \`${error.extractor}\` | ${escapePipes(error.message)} |`,
+      );
     }
     lines.push('');
   }

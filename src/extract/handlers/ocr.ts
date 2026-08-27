@@ -30,7 +30,7 @@ async function getWorker(): Promise<OcrWorker | null> {
         // Everything the password grammar can contain, plus the literal prefix.
         tessedit_char_whitelist: 'VISUALPING{}0123456789abcdefABCDEF',
       });
-      return worker as unknown as OcrWorker;
+      return worker;
     } catch {
       return null;
     }
@@ -136,7 +136,13 @@ export function imageSize(body: Buffer): ImageSize | null {
         continue;
       }
       const marker = body[offset + 1] ?? 0;
-      if (marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc) {
+      if (
+        marker >= 0xc0 &&
+        marker <= 0xcf &&
+        marker !== 0xc4 &&
+        marker !== 0xc8 &&
+        marker !== 0xcc
+      ) {
         return { height: body.readUInt16BE(offset + 5), width: body.readUInt16BE(offset + 7) };
       }
       if (marker === 0xd8 || marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) {
@@ -154,7 +160,10 @@ export function imageSize(body: Buffer): ImageSize | null {
   if (body.subarray(0, 2).toString('latin1') === 'BM' && body.length > 26) {
     return { width: body.readInt32LE(18), height: Math.abs(body.readInt32LE(22)) };
   }
-  if (body.subarray(0, 4).toString('latin1') === 'RIFF' && body.subarray(8, 12).toString('latin1') === 'WEBP') {
+  if (
+    body.subarray(0, 4).toString('latin1') === 'RIFF' &&
+    body.subarray(8, 12).toString('latin1') === 'WEBP'
+  ) {
     // Only VP8X carries dimensions at a fixed offset; other variants are skipped.
     if (body.subarray(12, 16).toString('latin1') === 'VP8X' && body.length > 30) {
       return {

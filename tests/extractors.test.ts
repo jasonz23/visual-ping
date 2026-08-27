@@ -44,11 +44,7 @@ function extractorsFor(hits: readonly PasswordHit[], password: string): string[]
  * `raw-text` extractor also sees most fixtures; asserting on "the first hit" would
  * test the ordering of the registry rather than the channel under test.
  */
-function methodsFrom(
-  hits: readonly PasswordHit[],
-  password: string,
-  extractor: string,
-): string[] {
+function methodsFrom(hits: readonly PasswordHit[], password: string, extractor: string): string[] {
   return hits
     .filter((hit) => hit.password === password && hit.extractor === extractor)
     .map((hit) => hit.method);
@@ -61,7 +57,10 @@ function expectMethod(
   fragment: string,
 ): void {
   const methods = methodsFrom(hits, password, extractor);
-  expect(methods.some((method) => method.includes(fragment)), `${extractor} methods: ${methods.join(' / ')}`).toBe(true);
+  expect(
+    methods.some((method) => method.includes(fragment)),
+    `${extractor} methods: ${methods.join(' / ')}`,
+  ).toBe(true);
 }
 
 describe('HTTP metadata channels', () => {
@@ -287,13 +286,19 @@ describe('container channels', () => {
   it('finds a password inside a nested zip', async () => {
     const inner = buildZip({ 'inner.txt': FAKE.zipMember });
     const outer = buildZip({ 'inner.zip': inner });
-    const hits = await run(outer, { mimeType: 'application/zip', url: 'http://example.test/a.zip' });
+    const hits = await run(outer, {
+      mimeType: 'application/zip',
+      url: 'http://example.test/a.zip',
+    });
     expect(passwords(hits)).toContain(FAKE.zipMember);
   });
 
   it('finds a password inside a tar member', async () => {
     const tar = buildTar({ 'notes.txt': FAKE.zipMember });
-    const hits = await run(tar, { mimeType: 'application/x-tar', url: 'http://example.test/a.tar' });
+    const hits = await run(tar, {
+      mimeType: 'application/x-tar',
+      url: 'http://example.test/a.tar',
+    });
     expect(passwords(hits)).toContain(FAKE.zipMember);
   });
 
@@ -318,7 +323,10 @@ describe('container channels', () => {
 
   it('finds a password in a wasm custom section', async () => {
     const wasm = buildWasm('note', FAKE.wasmSection);
-    const hits = await run(wasm, { mimeType: 'application/wasm', url: 'http://example.test/a.wasm' });
+    const hits = await run(wasm, {
+      mimeType: 'application/wasm',
+      url: 'http://example.test/a.wasm',
+    });
     expect(extractorsFor(hits, FAKE.wasmSection)).toContain('wasm');
   });
 });
@@ -406,7 +414,11 @@ describe('ExtractorRegistry', () => {
 
   it('isolates a throwing extractor and keeps running the rest', async () => {
     const isolated = new ExtractorRegistry().registerAll([throwing, finds]);
-    const results = await isolated.runAll({ record: record(), body: Buffer.alloc(1), bodyPath: 'x' });
+    const results = await isolated.runAll({
+      record: record(),
+      body: Buffer.alloc(1),
+      bodyPath: 'x',
+    });
     expect(results.find((result) => result.extractor === 'throws')?.error).toBe('boom');
     expect(results.find((result) => result.extractor === 'finds')?.hits).toHaveLength(1);
   });

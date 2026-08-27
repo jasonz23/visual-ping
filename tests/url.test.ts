@@ -56,7 +56,9 @@ describe('canonicalKey', () => {
 
   it('keeps parameters that select content', () => {
     expect(canonicalKey('http://h/report/?page=2')).toBe('http://h/report/?page=2');
-    expect(canonicalKey('http://h/report/?page=2')).not.toBe(canonicalKey('http://h/report/?page=3'));
+    expect(canonicalKey('http://h/report/?page=2')).not.toBe(
+      canonicalKey('http://h/report/?page=3'),
+    );
   });
 
   it('keeps a meaningful parameter even when a decorative one rides along', () => {
@@ -76,7 +78,13 @@ describe('resolveUrl', () => {
   });
 
   it('refuses schemes a crawler must not follow', () => {
-    for (const raw of ['javascript:void(0)', 'mailto:a@b.c', 'tel:+1', '#anchor', 'data:text/plain,x']) {
+    for (const raw of [
+      'javascript:void(0)',
+      'mailto:a@b.c',
+      'tel:+1',
+      '#anchor',
+      'data:text/plain,x',
+    ]) {
       expect(resolveUrl(raw, BASE)).toBeNull();
     }
   });
@@ -106,7 +114,9 @@ describe('findUrlLiterals', () => {
   });
 
   it('unescapes JSON-style escaped slashes', () => {
-    expect(findUrlLiterals('{"u":"\\/a\\/b.json"}', BASE)).toContain('http://54.214.7.161/a/b.json');
+    expect(findUrlLiterals('{"u":"\\/a\\/b.json"}', BASE)).toContain(
+      'http://54.214.7.161/a/b.json',
+    );
   });
 
   it('returns nothing for text with no references', () => {

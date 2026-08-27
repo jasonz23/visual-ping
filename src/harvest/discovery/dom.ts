@@ -37,30 +37,31 @@ export interface DomSnapshot {
 }
 
 /** Attribute names that can hold a URL, mapped to their discovery source. */
-const URL_ATTRIBUTES: ReadonlyArray<[selector: string, attribute: string, source: DiscoverySource]> =
-  [
-    ['a[href]', 'href', 'anchor'],
-    ['area[href]', 'href', 'area'],
-    ['link[href]', 'href', 'link-rel'],
-    ['base[href]', 'href', 'base'],
-    ['img[src]', 'src', 'img'],
-    ['img[data-src]', 'data-src', 'data-attribute'],
-    ['script[src]', 'src', 'script-src'],
-    ['iframe[src]', 'src', 'iframe'],
-    ['frame[src]', 'src', 'frame'],
-    ['embed[src]', 'src', 'embed'],
-    ['object[data]', 'data', 'object'],
-    ['source[src]', 'src', 'source'],
-    ['track[src]', 'src', 'track'],
-    ['audio[src]', 'src', 'source'],
-    ['video[src]', 'src', 'source'],
-    ['video[poster]', 'poster', 'poster'],
-    ['form[action]', 'action', 'form-action'],
-    ['button[formaction]', 'formaction', 'formaction'],
-    ['input[formaction]', 'formaction', 'formaction'],
-    ['use[href]', 'href', 'svg-href'],
-    ['image[href]', 'href', 'svg-href'],
-  ];
+const URL_ATTRIBUTES: ReadonlyArray<
+  [selector: string, attribute: string, source: DiscoverySource]
+> = [
+  ['a[href]', 'href', 'anchor'],
+  ['area[href]', 'href', 'area'],
+  ['link[href]', 'href', 'link-rel'],
+  ['base[href]', 'href', 'base'],
+  ['img[src]', 'src', 'img'],
+  ['img[data-src]', 'data-src', 'data-attribute'],
+  ['script[src]', 'src', 'script-src'],
+  ['iframe[src]', 'src', 'iframe'],
+  ['frame[src]', 'src', 'frame'],
+  ['embed[src]', 'src', 'embed'],
+  ['object[data]', 'data', 'object'],
+  ['source[src]', 'src', 'source'],
+  ['track[src]', 'src', 'track'],
+  ['audio[src]', 'src', 'source'],
+  ['video[src]', 'src', 'source'],
+  ['video[poster]', 'poster', 'poster'],
+  ['form[action]', 'action', 'form-action'],
+  ['button[formaction]', 'formaction', 'formaction'],
+  ['input[formaction]', 'formaction', 'formaction'],
+  ['use[href]', 'href', 'svg-href'],
+  ['image[href]', 'href', 'svg-href'],
+];
 
 /**
  * Runs inside the page. Exported as a plain function so Playwright can serialize

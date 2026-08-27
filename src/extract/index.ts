@@ -7,14 +7,22 @@ import {
   hexExtractor,
   percentAndEntityExtractor,
 } from './handlers/encodings.js';
-import { cookieExtractor, requestHeaderExtractor, responseHeaderExtractor } from './handlers/headers.js';
+import {
+  cookieExtractor,
+  requestHeaderExtractor,
+  responseHeaderExtractor,
+} from './handlers/headers.js';
 import { binaryStringsExtractor, rawTextExtractor, utf16TextExtractor } from './handlers/text.js';
 import { cssExtractor } from './handlers/css.js';
 import { htmlExtractor } from './handlers/html.js';
 import { javascriptExtractor, sourceMapExtractor } from './handlers/javascript.js';
 import { jsonExtractor } from './handlers/json.js';
 import { svgExtractor } from './handlers/svg.js';
-import { imageMetadataExtractor, pngChunkExtractor, trailingBytesExtractor } from './handlers/image.js';
+import {
+  imageMetadataExtractor,
+  pngChunkExtractor,
+  trailingBytesExtractor,
+} from './handlers/image.js';
 import { pdfExtractor } from './handlers/pdf.js';
 import { archiveExtractor } from './handlers/archive.js';
 import { mediaMetadataExtractor } from './handlers/media.js';

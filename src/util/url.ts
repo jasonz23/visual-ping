@@ -36,9 +36,7 @@ export const DECORATIVE_PARAMS: ReadonlySet<string> = new Set([
 const UNRESERVED = /%(2D|2E|5F|7E|3[0-9]|4[1-9A-F]|5[0-9A]|6[1-9A-F]|7[0-9A])/gi;
 
 function decodeUnreserved(value: string): string {
-  return value.replace(UNRESERVED, (match) =>
-    String.fromCharCode(parseInt(match.slice(1), 16)),
-  );
+  return value.replace(UNRESERVED, (match) => String.fromCharCode(parseInt(match.slice(1), 16)));
 }
 
 /** Resolve a possibly-relative URL against a base. Returns null when unusable. */

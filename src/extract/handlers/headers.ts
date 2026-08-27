@@ -11,7 +11,8 @@ import { scanText } from '../hit.js';
 
 export const responseHeaderExtractor: Extractor = {
   id: 'response-headers',
-  description: 'the status line and every response header, including custom X-*, ETag, Link, Server',
+  description:
+    'the status line and every response header, including custom X-*, ETag, Link, Server',
   appliesTo: (record) => Object.keys(record.headers).length > 0 || record.statusText.length > 0,
   extract: (ctx) => {
     const hits: PasswordHit[] = [];
