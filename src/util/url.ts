@@ -108,8 +108,11 @@ export function isSameHost(url: string, host: string): boolean {
 }
 
 /** Extract URL-shaped literals from arbitrary text (JS bundles, JSON, CSS, plain text). */
-export function findUrlLiterals(text: string, base: string): string[] {
+export function findUrlLiterals(source: string, base: string): string[] {
   const found = new Set<string>();
+  // JSON and JS bundles escape forward slashes; unescape first so `\/a\/b.json`
+  // is recognised as the path it represents.
+  const text = source.replace(/\\\//g, '/');
   const patterns: RegExp[] = [
     // Absolute URLs.
     /https?:\/\/[^\s"'`<>()\\]+/g,

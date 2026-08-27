@@ -10,6 +10,8 @@ import { decodeJsEscapes } from './encodings.js';
 const LINE_COMMENT = /(^|[^:'"\\])\/\/([^\n]*)/g;
 const BLOCK_COMMENT = /\/\*([\s\S]*?)\*\//g;
 const CHAR_CODE_CALL = /String\.fromCharCode\(([\d\s,]+)\)/g;
+/** Any numeric array literal — `String.fromCharCode.apply(null, arr)` is common. */
+const NUMERIC_ARRAY = /\[\s*(\d{1,3}(?:\s*,\s*\d{1,3}){9,})\s*\]/g;
 const CONCAT_RUN = /(?:['"][^'"\n]{0,40}['"]\s*\+\s*){2,}['"][^'"\n]{0,40}['"]/g;
 
 function isJavaScript(mimeType: string): boolean {
@@ -73,6 +75,23 @@ export const javascriptExtractor: Extractor = {
           artifactPath: ctx.bodyPath,
           extractor: 'javascript',
           method: `String.fromCharCode() payload (${where})`,
+        }),
+      );
+    }
+
+    // Char-code arrays decoded elsewhere, e.g. `String.fromCharCode.apply(null, a)`.
+    for (const match of text.matchAll(NUMERIC_ARRAY)) {
+      const codes = (match[1] ?? '')
+        .split(',')
+        .map((part) => Number(part.trim()))
+        .filter((code) => Number.isInteger(code) && code >= 0 && code <= 0x10ffff);
+      if (codes.length < 10) continue;
+      hits.push(
+        ...scanText(String.fromCharCode(...codes), {
+          record: ctx.record,
+          artifactPath: ctx.bodyPath,
+          extractor: 'javascript',
+          method: `character-code array literal (${where})`,
         }),
       );
     }

@@ -11,10 +11,20 @@ import { scanText } from '../hit.js';
 
 export const responseHeaderExtractor: Extractor = {
   id: 'response-headers',
-  description: 'all response headers, including custom X-*, ETag, Link and Server',
-  appliesTo: (record) => Object.keys(record.headers).length > 0,
+  description: 'the status line and every response header, including custom X-*, ETag, Link, Server',
+  appliesTo: (record) => Object.keys(record.headers).length > 0 || record.statusText.length > 0,
   extract: (ctx) => {
     const hits: PasswordHit[] = [];
+    // The reason phrase is server-controlled text that no body-oriented extractor
+    // would ever see, so it gets its own pass.
+    hits.push(
+      ...scanText(`${ctx.record.status} ${ctx.record.statusText}`, {
+        record: ctx.record,
+        artifactPath: ctx.bodyPath,
+        extractor: 'response-headers',
+        method: 'HTTP status line (reason phrase)',
+      }),
+    );
     for (const [name, value] of Object.entries(ctx.record.headers)) {
       hits.push(
         ...scanText(value, {

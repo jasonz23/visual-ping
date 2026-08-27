@@ -7,6 +7,7 @@
  * completeness argument rests on.
  */
 import type { DiscoverySource, FrontierEntry } from '../types.js';
+import type { TrapGuard } from '../harvest/trapGuard.js';
 import { canonicalKey, isSameHost } from '../util/url.js';
 
 export interface DiscoveryEvent {
@@ -32,6 +33,8 @@ export interface FrontierStats {
   offHost: number;
   unusable: number;
   discoveries: number;
+  /** URLs refused because their template was saturated (see `TrapGuard`). */
+  trapped: number;
 }
 
 export class Frontier {
@@ -41,8 +44,12 @@ export class Frontier {
   private readonly discoveries: DiscoveryEvent[] = [];
   private skippedOffHost = 0;
   private skippedUnusable = 0;
+  private skippedTrapped = 0;
 
-  constructor(private readonly host: string) {}
+  constructor(
+    private readonly host: string,
+    private readonly trapGuard?: TrapGuard,
+  ) {}
 
   /** Returns true when the URL was newly enqueued. */
   add(options: AddOptions): boolean {
@@ -63,6 +70,12 @@ export class Frontier {
       detail: options.detail,
     });
     if (this.known.has(key)) return false;
+    // Only new URLs are charged against a template's budget; a repeat discovery
+    // of something already queued is free.
+    if (this.trapGuard && !this.trapGuard.allow(key)) {
+      this.skippedTrapped += 1;
+      return false;
+    }
     this.known.add(key);
     this.queue.push({
       url: key,
@@ -107,6 +120,7 @@ export class Frontier {
       offHost: this.skippedOffHost,
       unusable: this.skippedUnusable,
       discoveries: this.discoveries.length,
+      trapped: this.skippedTrapped,
     };
   }
 }

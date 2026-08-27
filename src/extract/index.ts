@@ -20,6 +20,7 @@ import { archiveExtractor } from './handlers/archive.js';
 import { mediaMetadataExtractor } from './handlers/media.js';
 import { fontExtractor } from './handlers/font.js';
 import { wasmExtractor } from './handlers/wasm.js';
+import { ocrExtractor } from './handlers/ocr.js';
 
 export function buildRegistry(): ExtractorRegistry {
   return new ExtractorRegistry().registerAll([
@@ -38,6 +39,7 @@ export function buildRegistry(): ExtractorRegistry {
     imageMetadataExtractor,
     pngChunkExtractor,
     trailingBytesExtractor,
+    ocrExtractor,
     pdfExtractor,
     archiveExtractor,
     mediaMetadataExtractor,

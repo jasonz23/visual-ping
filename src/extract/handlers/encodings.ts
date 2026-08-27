@@ -182,15 +182,25 @@ export function scanDecompressed(
     ['raw deflate', inflateRawSync],
     ['brotli', brotliDecompressSync],
   ];
-  const offsets = new Set<number>([0]);
-  // gzip members can be appended after other data.
-  for (let i = 1; i < Math.min(buffer.length - 2, 4_000_000); i += 1) {
-    if (buffer[i] === 0x1f && buffer[i + 1] === 0x8b && buffer[i + 2] === 0x08) offsets.add(i);
+  const offsets = new Map<number, 'gzip' | 'zlib' | 'all'>([[0, 'all']]);
+  // Compressed members can be embedded at any offset — a gzip member appended
+  // after other data, or a bare zlib stream such as a PNG IDAT payload, whose
+  // contents are invisible to every text-oriented extractor.
+  const limit = Math.min(buffer.length - 2, 4_000_000);
+  for (let i = 1; i < limit; i += 1) {
+    const b0 = buffer[i];
+    const b1 = buffer[i + 1];
+    if (b0 === 0x1f && b1 === 0x8b && buffer[i + 2] === 0x08) {
+      offsets.set(i, 'gzip');
+    } else if (b0 === 0x78 && (b1 === 0x01 || b1 === 0x9c || b1 === 0xda || b1 === 0x5e)) {
+      offsets.set(i, 'zlib');
+    }
   }
-  for (const offset of offsets) {
+  for (const [offset, kind] of offsets) {
     const slice = offset === 0 ? buffer : buffer.subarray(offset);
     for (const [label, decode] of decoders) {
-      if (offset !== 0 && label !== 'gzip') continue;
+      if (kind === 'gzip' && label !== 'gzip') continue;
+      if (kind === 'zlib' && label !== 'zlib') continue;
       let decoded: Buffer;
       try {
         decoded = decode(slice);

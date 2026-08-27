@@ -95,6 +95,7 @@ export function renderCrawlReport(input: CrawlReportInput): string {
     lines.push(`- Off-host links skipped: ${stats.offHost}`);
     lines.push(`- Unusable / non-HTTP links skipped: ${stats.unusable}`);
     lines.push(`- Navigation or fetch errors: ${harvest.errors.length}`);
+    lines.push(`- URLs refused by the trap guard: ${stats.trapped}`);
     if (harvest.formsSkipped.length > 0) {
       lines.push(`- Non-GET forms deliberately not submitted: ${harvest.formsSkipped.length}`);
     }
@@ -114,22 +115,52 @@ export function renderCrawlReport(input: CrawlReportInput): string {
     }
     lines.push('');
 
+    const saturated = harvest.templates.filter((template) => template.saturated);
+    lines.push('### URL templates');
+    lines.push('');
+    lines.push(
+      'URLs are grouped by template (numbers in the path and query masked to `{n}`). ' +
+        'A template is *saturated* when its pages stopped producing new page shapes ' +
+        'and stopped linking outside themselves — an unbounded generator, not a frontier.',
+    );
+    lines.push('');
+    lines.push('| Template | Enqueued | Fetched | Distinct shapes | Outbound novelty | Saturated |');
+    lines.push('| --- | ---: | ---: | ---: | ---: | --- |');
+    for (const template of harvest.templates.slice(0, 40)) {
+      lines.push(
+        `| \`${short(template.template)}\` | ${template.enqueued} | ${template.fetched} | ` +
+          `${template.distinctShapes} | ${template.outboundNovelty} | ` +
+          `${template.saturated ? `yes — ${escapePipes(template.reason ?? '')}` : 'no'} |`,
+      );
+    }
+    lines.push('');
+    if (saturated.length > 0) {
+      lines.push(
+        `**${saturated.length} template(s) were closed by the trap guard.** Everything ` +
+          'else in the frontier was crawled to exhaustion.',
+      );
+      lines.push('');
+    }
+
     lines.push('### URL inventory');
     lines.push('');
     lines.push('Every URL that entered the frontier, with the first way it was discovered.');
     lines.push('');
-    lines.push('| # | URL | First discovered via | From | Detail |');
-    lines.push('| ---: | --- | --- | --- | --- |');
+    lines.push('| # | URL | Discovered via | First seen on |');
+    lines.push('| ---: | --- | --- | --- |');
     const firstSeen = new Map<string, (typeof harvest.discoveryLog)[number]>();
+    const allSources = new Map<string, Set<string>>();
     for (const event of harvest.discoveryLog) {
       if (!firstSeen.has(event.key)) firstSeen.set(event.key, event);
+      const sources = allSources.get(event.key) ?? new Set<string>();
+      sources.add(event.source);
+      allSources.set(event.key, sources);
     }
     let index = 0;
     for (const [url, event] of firstSeen) {
       index += 1;
-      lines.push(
-        `| ${index} | \`${url}\` | \`${event.source}\` | \`${short(event.discoveredFrom)}\` | ${escapePipes(event.detail ?? '')} |`,
-      );
+      const sources = [...(allSources.get(url) ?? [])].map((source) => `\`${source}\``).join(', ');
+      lines.push(`| ${index} | \`${url}\` | ${sources} | \`${short(event.discoveredFrom)}\` |`);
     }
     lines.push('');
   }

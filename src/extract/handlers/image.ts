@@ -25,21 +25,22 @@ export const imageMetadataExtractor: Extractor = {
   appliesTo: (record, body) => body.length > 0 && isImage(record.mimeType, record.url),
   extract: async (ctx) => {
     const hits: PasswordHit[] = [];
-    const parsed: unknown = await exifr
-      .parse(ctx.body, { tiff: true, exif: true, gps: true, iptc: true, xmp: true, icc: true })
-      .catch(() => null);
+    // `true` asks exifr for every segment it understands. The options-object form
+    // returns undefined for some minimal-but-valid files, so it is not equivalent.
+    const parsed: unknown = await exifr.parse(ctx.body, true).catch(() => null);
     if (parsed && typeof parsed === 'object') {
       for (const [tag, value] of Object.entries(parsed as Record<string, unknown>)) {
-        const text = stringify(value);
-        if (!text) continue;
-        hits.push(
-          ...scanText(text, {
-            record: ctx.record,
-            artifactPath: ctx.bodyPath,
-            extractor: 'image-metadata',
-            method: `image metadata tag "${tag}"`,
-          }),
-        );
+        for (const [encoding, text] of decodeMetadataValue(value)) {
+          if (!text) continue;
+          hits.push(
+            ...scanText(text, {
+              record: ctx.record,
+              artifactPath: ctx.bodyPath,
+              extractor: 'image-metadata',
+              method: `image metadata tag "${tag}"${encoding ? ` (${encoding})` : ''}`,
+            }),
+          );
+        }
       }
     }
     // Raw XMP packet, which exifr may hand back unparsed or skip entirely.
@@ -252,6 +253,55 @@ export function findTrailingBytes(body: Buffer): TrailingBytes | null {
     const trailer = body.lastIndexOf(0x3b);
     if (trailer !== -1 && trailer + 1 < body.length) {
       return { marker: 'GIF trailer', bytes: body.length - trailer - 1, data: body.subarray(trailer + 1) };
+    }
+  }
+  return null;
+}
+
+/**
+ * Turn one metadata value into every plausible text reading.
+ *
+ * EXIF `UserComment` is the reason this exists: it is an UNDEFINED-type field whose
+ * first eight bytes name a character set, so a UTF-16 comment reaches us as a plain
+ * byte bag that a naive `String(value)` renders as `[object Object]`.
+ */
+export function decodeMetadataValue(value: unknown): Array<[string, string]> {
+  const bytes = asBytes(value);
+  if (!bytes) return [['', stringify(value)]];
+
+  const readings: Array<[string, string]> = [['raw bytes', bytes.toString('latin1')]];
+  let payload = bytes;
+  let prefix = '';
+  const marker = bytes.subarray(0, 8).toString('latin1').replace(/\0+$/, '');
+  if (/^(UNICODE|ASCII|JIS)$/i.test(marker)) {
+    payload = bytes.subarray(8);
+    prefix = `${marker.toUpperCase()} `;
+  }
+  readings.push([`${prefix}utf-8`, payload.toString('utf8')]);
+  if (payload.length % 2 === 0) {
+    readings.push([`${prefix}utf-16le`, payload.toString('utf16le')]);
+    const swapped = Buffer.from(payload);
+    swapped.swap16();
+    readings.push([`${prefix}utf-16be`, swapped.toString('utf16le')]);
+  }
+  return readings;
+}
+
+/** Byte-array-like metadata values: Uint8Array, Buffer, or an index-keyed object. */
+function asBytes(value: unknown): Buffer | null {
+  if (value instanceof Uint8Array) return Buffer.from(value);
+  if (Array.isArray(value) && value.every((item) => typeof item === 'number')) {
+    return Buffer.from(value as number[]);
+  }
+  if (value && typeof value === 'object') {
+    const entries = Object.entries(value as Record<string, unknown>);
+    if (
+      entries.length > 0 &&
+      entries.every(([key, item]) => /^\d+$/.test(key) && typeof item === 'number')
+    ) {
+      const bytes = Buffer.alloc(entries.length);
+      for (const [key, item] of entries) bytes[Number(key)] = Number(item) & 0xff;
+      return bytes;
     }
   }
   return null;

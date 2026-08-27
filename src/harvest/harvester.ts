@@ -16,6 +16,8 @@ import type { FrontierStats } from '../store/frontier.js';
 import { canonicalKey, findUrlLiterals, isSameHost, normalizeUrl } from '../util/url.js';
 import { URL_ATTRIBUTE_TABLE, collectFromDom } from './discovery/dom.js';
 import type { DomSnapshot } from './discovery/dom.js';
+import { TrapGuard, templateKey } from './trapGuard.js';
+import type { TemplateStats } from './trapGuard.js';
 
 /** MIME types worth loading in a real page rather than just downloading. */
 const RENDERABLE = /^(text\/html|application\/xhtml\+xml|text\/xml|application\/xml|image\/svg)/i;
@@ -30,6 +32,8 @@ export interface HarvestSummary {
   frontier: FrontierStats;
   discoveryLog: readonly { key: string; source: DiscoverySource; discoveredFrom: string; detail?: string }[];
   formsSkipped: { url: string; method: string; action: string }[];
+  /** Per-template crawl statistics, including any saturated (trap) templates. */
+  templates: TemplateStats[];
 }
 
 export interface HarvestError {
@@ -44,6 +48,7 @@ interface CaptureMeta {
 
 export class Harvester {
   private readonly frontier: Frontier;
+  private readonly trapGuard: TrapGuard;
   private readonly errors: HarvestError[] = [];
   private readonly capturedUrls = new Map<string, string>();
   private readonly formsSkipped: { url: string; method: string; action: string }[] = [];
@@ -57,7 +62,8 @@ export class Harvester {
     private readonly store: ArtifactStore,
     private readonly log: Logger,
   ) {
-    this.frontier = new Frontier(config.host);
+    this.trapGuard = new TrapGuard();
+    this.frontier = new Frontier(config.host, this.trapGuard);
   }
 
   async run(seeds: string[]): Promise<HarvestSummary> {
@@ -90,6 +96,15 @@ export class Harvester {
     this.context.setDefaultNavigationTimeout(this.config.navTimeoutMs);
     this.context.setDefaultTimeout(this.config.navTimeoutMs);
 
+    // Playwright ships our collector functions into the page as source text. The
+    // TypeScript loader compiles them with esbuild's `keepNames`, which rewrites
+    // declarations to call a `__name` helper that only exists in the Node bundle —
+    // so provide an identity shim inside every document. Injected as a string
+    // rather than a function so the shim itself cannot be rewritten the same way.
+    await this.context.addInitScript({
+      content: 'globalThis.__name = globalThis.__name || function (fn) { return fn; };',
+    });
+
     try {
       const workers = Array.from({ length: this.config.concurrency }, (_, i) => this.worker(i));
       await Promise.all(workers);
@@ -106,6 +121,7 @@ export class Harvester {
       frontier: this.frontier.stats,
       discoveryLog: this.frontier.discoveryLog,
       formsSkipped: this.formsSkipped,
+      templates: this.trapGuard.report,
     };
   }
 
@@ -223,7 +239,8 @@ export class Harvester {
 
     if (snapshot) {
       await this.persistSnapshotSidecar(entry, pageUrl, snapshot);
-      this.enqueueCandidates(snapshot, pageUrl, entry);
+      const novelty = this.enqueueCandidates(snapshot, pageUrl, entry);
+      this.trapGuard.observe(pageUrl, Buffer.from(renderedHtml, 'utf8'), novelty);
       await this.probeClickables(page, snapshot, pageUrl, entry, log);
     }
     await this.enqueueCookies(pageUrl);
@@ -266,15 +283,21 @@ export class Harvester {
     });
   }
 
-  private enqueueCandidates(snapshot: DomSnapshot, pageUrl: string, entry: FrontierEntry): void {
+  /** Returns how many *new* URLs this page contributed outside its own template. */
+  private enqueueCandidates(snapshot: DomSnapshot, pageUrl: string, entry: FrontierEntry): number {
+    const ownTemplate = templateKey(pageUrl);
+    let outboundNovelty = 0;
     for (const candidate of snapshot.candidates) {
-      this.frontier.add({
+      const added = this.frontier.add({
         rawUrl: candidate.url,
         discoveredFrom: pageUrl,
         source: candidate.source,
         detail: candidate.detail,
         depth: entry.depth + 1,
       });
+      if (added && templateKey(resolveAgainst(candidate.url, pageUrl)) !== ownTemplate) {
+        outboundNovelty += 1;
+      }
     }
     // Storage values sometimes hold paths the DOM never mentions.
     const storageBlobs = [
@@ -283,14 +306,16 @@ export class Harvester {
       snapshot.cookies,
     ].join('\n');
     for (const url of findUrlLiterals(storageBlobs, pageUrl)) {
-      this.frontier.add({
+      const added = this.frontier.add({
         rawUrl: url,
         discoveredFrom: pageUrl,
         source: 'js-string-literal',
         detail: 'cookie/localStorage/sessionStorage value',
         depth: entry.depth + 1,
       });
+      if (added && templateKey(resolveAgainst(url, pageUrl)) !== ownTemplate) outboundNovelty += 1;
     }
+    return outboundNovelty;
   }
 
   /**
@@ -447,6 +472,24 @@ export class Harvester {
     });
   }
 
+  /**
+   * Read a body the browser refused to expose (redirects). `maxRedirects: 0` keeps
+   * the 3xx itself rather than following through to the target.
+   */
+  private async fetchBodyWithoutRedirects(url: string): Promise<Buffer> {
+    try {
+      const response = await this.mustContext().request.get(url, {
+        timeout: this.config.navTimeoutMs,
+        failOnStatusCode: false,
+        maxRedirects: 0,
+      });
+      return Buffer.from(await response.body());
+    } catch (error) {
+      this.log.debug('redirect body fetch failed', { url, error: errorMessage(error) });
+      return Buffer.alloc(0);
+    }
+  }
+
   /** Fetch through the context's API request (shares credentials and cookies). */
   private async fetchViaApi(url: string, entry?: FrontierEntry): Promise<void> {
     try {
@@ -505,9 +548,11 @@ export class Harvester {
     try {
       body = Buffer.from(await response.body());
     } catch (error) {
-      // 3xx and aborted requests legitimately have no body; still record the headers.
-      body = Buffer.alloc(0);
+      // Chromium discards redirect bodies, and a redirect body is still content the
+      // server chose to send. Re-request it with redirects disabled so nothing the
+      // server produced goes unexamined.
       this.log.debug('response body unavailable', { url, status, error: errorMessage(error) });
+      body = status >= 300 && status < 400 ? await this.fetchBodyWithoutRedirects(url) : Buffer.alloc(0);
     }
 
     await this.persist(body, {
@@ -652,6 +697,15 @@ export function diffText(all: string, visible: string): string {
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Resolve a discovered reference so it can be compared against a template key. */
+function resolveAgainst(raw: string, base: string): string {
+  try {
+    return new URL(raw, base).toString();
+  } catch {
+    return raw;
+  }
 }
 
 function errorMessage(error: unknown): string {
