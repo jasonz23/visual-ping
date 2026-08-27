@@ -7,6 +7,7 @@ import {
   normalizeUrl,
   resolveUrl,
 } from '../src/util/url.js';
+import { parseProxy } from '../src/config.js';
 
 const BASE = 'http://54.214.7.161/docs/';
 
@@ -121,5 +122,35 @@ describe('findUrlLiterals', () => {
 
   it('returns nothing for text with no references', () => {
     expect(findUrlLiterals('just some prose, 42% of it', BASE)).toEqual([]);
+  });
+});
+
+describe('parseProxy', () => {
+  it('returns undefined when unset', () => {
+    expect(parseProxy(undefined)).toBeUndefined();
+    expect(parseProxy('')).toBeUndefined();
+  });
+
+  it('parses a bare host:port proxy', () => {
+    expect(parseProxy('http://de-exit.example.net:8080')).toEqual({
+      server: 'http://de-exit.example.net:8080',
+    });
+  });
+
+  it('lifts credentials out of the URL so they are not duplicated in server', () => {
+    expect(parseProxy('http://user:p%40ss@de.example.net:3128')).toEqual({
+      server: 'http://de.example.net:3128',
+      username: 'user',
+      password: 'p@ss',
+    });
+  });
+
+  it('supports socks5 schemes', () => {
+    expect(parseProxy('socks5://127.0.0.1:9050')).toEqual({ server: 'socks5://127.0.0.1:9050' });
+  });
+
+  it('throws on input that is not a URL', () => {
+    expect(() => parseProxy('://nonsense')).toThrow(/VP_PROXY/);
+    expect(() => parseProxy('http://')).toThrow(/VP_PROXY/);
   });
 });

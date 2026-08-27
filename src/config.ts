@@ -15,6 +15,21 @@ export interface AppConfig {
   idleTimeoutMs: number;
   logLevel: LogLevel;
   headless: boolean;
+  /**
+   * Optional upstream proxy. The target geo-gates one page on the *real* source
+   * IP — no forwarded-IP or country header changes it — so the only way to be
+   * seen as another region is to originate the request from there. Point this at
+   * an exit node in the required country and the whole crawl (documents and
+   * subresources alike) routes through it.
+   */
+  proxy?: ProxyConfig;
+}
+
+export interface ProxyConfig {
+  /** `scheme://host:port`, e.g. `http://de.example.net:8080` or `socks5://…`. */
+  server: string;
+  username?: string;
+  password?: string;
 }
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
@@ -85,5 +100,26 @@ export function loadConfig(): AppConfig {
     idleTimeoutMs: num('VP_IDLE_TIMEOUT_MS', 8_000),
     logLevel: logLevel(),
     headless: process.env.VP_HEADLESS !== 'false',
+    proxy: parseProxy(process.env.VP_PROXY),
   };
+}
+
+/**
+ * Parse `VP_PROXY` into Playwright's proxy shape. Accepts an optional
+ * `user:pass@` prefix; credentials are lifted out of the URL so they are not
+ * duplicated in the `server` field.
+ */
+export function parseProxy(raw: string | undefined): ProxyConfig | undefined {
+  if (!raw) return undefined;
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    throw new Error(`VP_PROXY must be a URL like http://host:port (got "${raw}")`);
+  }
+  const server = `${url.protocol}//${url.host}`;
+  const config: ProxyConfig = { server };
+  if (url.username) config.username = decodeURIComponent(url.username);
+  if (url.password) config.password = decodeURIComponent(url.password);
+  return config;
 }

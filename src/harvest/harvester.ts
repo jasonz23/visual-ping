@@ -90,8 +90,16 @@ export class Harvester {
     }
 
     this.browser = await chromium.launch({ headless: this.config.headless });
+    if (this.config.proxy) {
+      this.log.info('routing all requests through the configured proxy', {
+        server: this.config.proxy.server,
+      });
+    }
     this.context = await this.browser.newContext({
       httpCredentials: { username: this.config.username, password: this.config.password },
+      // Proxy is set on the context so both navigations and the API request
+      // context (used for non-navigable subresources) share the same exit.
+      ...(this.config.proxy ? { proxy: this.config.proxy } : {}),
       ignoreHTTPSErrors: true,
       userAgent:
         'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) ' +
