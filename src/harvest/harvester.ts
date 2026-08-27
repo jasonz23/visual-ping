@@ -138,8 +138,11 @@ export class Harvester {
       for (;;) {
         const entry = this.frontier.next();
         if (!entry) {
-          // Another worker may still be discovering URLs; give it a beat.
-          if (this.activeWork > 0) {
+          // The frontier can still grow from two places: another worker that is
+          // mid-page, and the response queue, which enqueues URL literals found in
+          // response bodies *after* the navigation that fetched them has returned.
+          // Exiting on an empty queue alone would drop those.
+          if (this.activeWork > 0 || this.pendingSaves > 0) {
             await delay(150);
             continue;
           }
@@ -166,6 +169,7 @@ export class Harvester {
   }
 
   private activeWork = 0;
+  private pendingSaves = 0;
 
   private async processEntry(page: Page, entry: FrontierEntry, log: Logger): Promise<void> {
     const alreadyMime = this.capturedUrls.get(entry.url);
