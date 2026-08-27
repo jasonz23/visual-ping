@@ -303,9 +303,10 @@ provenance, trap-guard saturation, and artifact-store dedupe/resume.
 | 7   | `/static/img/whiteboard-scan.png` | text drawn into the pixels — OCR only                      |
 
 The eighth is not present anywhere on the site's reachable surface as of this
-run. That is a claim, not an excuse, so here is what backs it — see the
-"Completeness" section below for the reasoning, and
-[Unexplained artifacts](#what-is-still-unexplained) for what is left.
+run. That is a claim rather than an excuse, so the Completeness section below
+sets out what backs it, and [What is still
+unexplained](#what-is-still-unexplained) names the specific places it could be
+hiding that this crawl cannot reach.
 
 ---
 
@@ -313,21 +314,30 @@ run. That is a claim, not an excuse, so here is what backs it — see the
 
 ### The frontier was exhausted
 
-The crawl ends with **0 URLs pending** and 0 navigation errors — it stopped
-because there was nothing left, not because it hit a budget. The one deliberate
-exception is the `/report/?page={n}` template, closed by the trap guard and
+The crawl ends with **594 URLs discovered, 594 processed, 0 pending** and 0
+navigation errors — it stopped because there was nothing left, not because it hit
+a budget. The one deliberate exception is the `/report/?page={n}` template, which
+the trap guard closed after 31 pages ("25 pages sampled reduced to 2 distinct
+page shapes and contributed no URLs outside the template") and which was
 separately swept by hand (above).
 
 This was verified independently of the crawler: re-parsing every stored HTML, CSS,
 JS and JSON body for `href` / `src` / `action` / `data` / `poster` / `srcset` /
 `url()` / quoted paths, resolving each against its containing document and
 canonicalizing it, yields **exactly one** referenced-but-unfetched URL —
-`/report/?page=501`, the trap boundary. The link graph is closed.
+`/report/?page=32`, the trap boundary. The link graph is closed.
 
 ### Every discovered URL was fetched and hashed
 
-1,063 URLs, 1,063 response artifacts, no empty 200s. Every one has a sha256 and a
-sidecar recording its status, final URL and complete headers.
+594 URLs, 594 response artifacts, no empty 200s — 1,750 stored observations over
+1,267 unique bodies once sha256 dedupe collapses the 483 duplicates. Every
+observation has a sha256 and a sidecar recording its status, final URL and
+complete headers.
+
+An earlier run of the same code with the trap guard's weaker fingerprint walked
+1,063 URLs — the extra 469 were all `/report/` pages — and produced exactly the
+same seven passwords, which is a useful control: the pages the guard now skips
+demonstrably contained nothing.
 
 ### Every artifact went through every applicable extractor
 
@@ -384,9 +394,11 @@ Being precise about the remaining gap is more useful than a round number:
   nowhere new, so this is almost certainly a pure trap — but it is unbounded and
   therefore cannot be _proved_ clean.
 - **`/status/eu-region/`** returns a static `403` on every request
-  ("only visible to Germany region"), unchanged by `Accept-Language`,
-  `X-Forwarded-For` or `CF-IPCountry`, and no other `/status/<region>/` slug
-  exists. A real browser from this IP cannot see whatever it would show, so it
+  ("only visible to Germany region"), byte-identical across 30 consecutive
+  requests and unchanged by any of twelve client-IP or country headers
+  (`X-Forwarded-For`, `X-Real-IP`, `True-Client-IP`, `CF-Connecting-IP`,
+  `Fastly-Client-IP`, `X-Country-Code`, `Accept-Language: de`, …), and no other
+  `/status/<region>/` slug exists. A real browser from this IP cannot see whatever it would show, so it
   behaves as a decoy — but its content is genuinely unavailable to this crawl.
 - **Three bare 16-hex strings** sit in JPEG `COM` markers
   (`field-visit.jpg`, `office-plants.jpg`, `team-offsite.jpg`). They are _not_ in
