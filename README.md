@@ -289,8 +289,8 @@ provenance, trap-guard saturation, and artifact-store dedupe/resume.
 
 ## Results
 
-**Seven of the eight passwords were recovered.** They are in
-`out/passwords.json`; the channel each was hidden in:
+**All eight passwords were recovered.** They are in `out/passwords.json`; the
+channel each was hidden in:
 
 | #   | Where                             | Channel                                                    |
 | --- | --------------------------------- | ---------------------------------------------------------- |
@@ -301,12 +301,34 @@ provenance, trap-guard saturation, and artifact-store dedupe/resume.
 | 5   | `/static/js/theme-switcher.js`    | character-code array passed to `String.fromCharCode.apply` |
 | 6   | `/static/img/field-visit.jpg`     | EXIF `UserComment`, UTF-16 behind a `UNICODE` marker       |
 | 7   | `/static/img/whiteboard-scan.png` | text drawn into the pixels — OCR only                      |
+| 8   | `/status/eu-region/`              | page body, unlocked only from a Germany-region source IP   |
 
-The eighth is not present anywhere on the site's reachable surface as of this
-run. That is a claim rather than an excuse, so the Completeness section below
-sets out what backs it, and [What is still
-unexplained](#what-is-still-unexplained) names the specific places it could be
-hiding that this crawl cannot reach.
+### The eighth: a server-side geo gate
+
+`/status/eu-region/` is linked from the homepage ("regional availability
+status"), but returns a static `403` — _"only visible to Germany region. Your IP
+is from Canada."_ — to any request not originating in Germany. The gate is keyed
+to the **real TCP source IP**: a live server-side GeoIP lookup on the connection,
+not on anything the client sends. This was established by exhausting the
+client-controlled surface — ~20 forwarded-IP and country headers
+(`X-Forwarded-For` with a genuine German IP, `CF-IPCountry: DE`, `X-Real-IP`,
+`True-Client-IP`, `Forwarded`, …), cookies, query params, and alternate region
+slugs — none of which moved the detected country off the crawler's real egress.
+
+So the page is not "hidden" in any byte a crawler can decode; it is gated on
+_where the request comes from_, and the only way through is to actually originate
+from the required region. Running the crawl from a Germany-region egress returns:
+
+```
+Regional status: Germany
+Access confirmed from the Germany (DE) region. This region's provisioning password:
+VISUALPING{5488187886a5755a}
+```
+
+The crawler routes through a proxy via **`VP_PROXY`** (set on the browser context,
+so navigations and subresources share the exit) for exactly this case — point it
+at an exit node in the required region. A host-level VPN on the crawl machine
+works identically and needs no configuration.
 
 ---
 
@@ -314,7 +336,7 @@ hiding that this crawl cannot reach.
 
 ### The frontier was exhausted
 
-The crawl ends with **594 URLs discovered, 594 processed, 0 pending** and 0
+The crawl ends with **592 URLs discovered, 592 processed, 0 pending** and 0
 navigation errors — it stopped because there was nothing left, not because it hit
 a budget. The one deliberate exception is the `/report/?page={n}` template, which
 the trap guard closed after 31 pages ("25 pages sampled reduced to 2 distinct
@@ -329,15 +351,19 @@ canonicalizing it, yields **exactly one** referenced-but-unfetched URL —
 
 ### Every discovered URL was fetched and hashed
 
-594 URLs, 594 response artifacts, no empty 200s — 1,750 stored observations over
-1,267 unique bodies once sha256 dedupe collapses the 483 duplicates. Every
+592 URLs, 592 response artifacts, **no empty 200s** — 1,744 stored observations
+over 1,261 unique bodies once sha256 dedupe collapses the duplicates. Every
 observation has a sha256 and a sidecar recording its status, final URL and
 complete headers.
 
-An earlier run of the same code with the trap guard's weaker fingerprint walked
-1,063 URLs — the extra 469 were all `/report/` pages — and produced exactly the
-same seven passwords, which is a useful control: the pages the guard now skips
-demonstrably contained nothing.
+Routing through a proxy surfaced a Playwright quirk worth noting: for a proxied
+request, `response.body()` can return _empty_ for a 200 instead of throwing, so a
+naive capture silently stores 0 bytes. The harvester now detects any
+should-have-had-a-body response that came back empty and re-fetches it through the
+API request context (which shares the same proxy and credentials) — the same
+recovery path already used for redirect bodies. With it, the proxied run captures
+every body and finds all eight; without it, two subresource-borne passwords
+(`theme-switcher.js`, `whiteboard-scan.png`) were lost to empty captures.
 
 ### Every artifact went through every applicable extractor
 
@@ -385,30 +411,24 @@ planes, and both bit orders; their inflated `IDAT` streams and unfiltered pixel
 data were searched directly; and every image was OCR'd regardless of size. All
 negative.
 
-### What is still unexplained
+### Deliberately not chased down rabbit holes
 
-Being precise about the remaining gap is more useful than a round number:
+Two things look like passwords and are not, so they are named here rather than
+force-fit into the count:
 
 - **`/report/?page=N` beyond the swept range.** Pages 1–60,000 and a coarse sweep
   to 2,000,000 are clean, and the pages are structurally uniform and link
-  nowhere new, so this is almost certainly a pure trap — but it is unbounded and
-  therefore cannot be _proved_ clean.
-- **`/status/eu-region/`** returns a static `403` on every request
-  ("only visible to Germany region"), byte-identical across 30 consecutive
-  requests and unchanged by any of twelve client-IP or country headers
-  (`X-Forwarded-For`, `X-Real-IP`, `True-Client-IP`, `CF-Connecting-IP`,
-  `Fastly-Client-IP`, `X-Country-Code`, `Accept-Language: de`, …), and no other
-  `/status/<region>/` slug exists. A real browser from this IP cannot see whatever it would show, so it
-  behaves as a decoy — but its content is genuinely unavailable to this crawl.
+  nowhere new, so this is a pure crawler trap. It is unbounded, but nothing in it
+  is a password.
 - **Three bare 16-hex strings** sit in JPEG `COM` markers
   (`field-visit.jpg`, `office-plants.jpg`, `team-offsite.jpg`). They are _not_ in
   the password format, and `field-visit.jpg` carries both one of these and a
-  properly-formatted password in its EXIF, which is what makes them read as
-  decoys. They are reported here rather than silently wrapped in `VISUALPING{…}`,
+  properly-formatted password in its EXIF, which is what marks them as decoys.
+  They are reported as-is rather than silently wrapped in `VISUALPING{…}`,
   because guessing the format onto them would be inventing an answer.
 
-The most likely explanation for 7 rather than 8 is that the eighth lives in one
-of the two places above that a browser at this IP cannot reach or a crawler
-cannot bound. If it is elsewhere, it is in a channel this pipeline does not
-model — in which case adding it is one file in `extract/handlers/` and one line
-in `buildRegistry()`.
+All eight real passwords were found in a single clean run from a Germany-region
+egress. Seven are decodable from any vantage point; the eighth additionally
+requires originating the request from the gated region (see
+[The eighth](#the-eighth-a-server-side-geo-gate) above) — a property of the
+network path, not of any byte on the page.

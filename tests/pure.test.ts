@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { imageSize, repairConfusables } from '../src/extract/handlers/ocr.js';
-import { diffText, isTextual, mimeOf } from '../src/harvest/harvester.js';
+import { diffText, isTextual, mimeOf, shouldHaveBody } from '../src/harvest/harvester.js';
 import { EXAMPLE_PASSWORD, findPasswords, isExample } from '../src/util/password.js';
 import { decodeCssEscapes } from '../src/extract/handlers/css.js';
 import { decodeEntities, decodeJsEscapes, rot13 } from '../src/extract/handlers/encodings.js';
@@ -129,5 +129,23 @@ describe('decoders', () => {
       Buffer.from('tiny'),
     ]);
     expect(printableRuns(body, 6)).toEqual(['findable']);
+  });
+});
+
+describe('shouldHaveBody', () => {
+  it('expects a body for a normal 200 GET', () => {
+    expect(shouldHaveBody(200, 'GET', {})).toBe(true);
+  });
+
+  it('does not expect a body for 204/304 or an explicit zero length', () => {
+    expect(shouldHaveBody(204, 'GET', {})).toBe(false);
+    expect(shouldHaveBody(304, 'GET', {})).toBe(false);
+    expect(shouldHaveBody(200, 'GET', { 'content-length': '0' })).toBe(false);
+  });
+
+  it('does not expect a body for HEAD, redirects, or errors', () => {
+    expect(shouldHaveBody(200, 'HEAD', {})).toBe(false);
+    expect(shouldHaveBody(301, 'GET', {})).toBe(false);
+    expect(shouldHaveBody(404, 'GET', {})).toBe(false);
   });
 });

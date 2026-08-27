@@ -512,6 +512,20 @@ export class Harvester {
     }
   }
 
+  /** Re-fetch a 2xx body the browser reported as empty (a proxied-request failure mode). */
+  private async recoverBody(url: string): Promise<Buffer> {
+    try {
+      const response = await this.mustContext().request.get(url, {
+        timeout: this.config.navTimeoutMs,
+        failOnStatusCode: false,
+      });
+      return Buffer.from(await response.body());
+    } catch (error) {
+      this.log.debug('empty-body recovery fetch failed', { url, error: errorMessage(error) });
+      return Buffer.alloc(0);
+    }
+  }
+
   /** Fetch through the context's API request (shares credentials and cookies). */
   private async fetchViaApi(url: string, entry?: FrontierEntry): Promise<void> {
     try {
@@ -572,12 +586,28 @@ export class Harvester {
     try {
       body = Buffer.from(await response.body());
     } catch (error) {
-      // Chromium discards redirect bodies, and a redirect body is still content the
-      // server chose to send. Re-request it with redirects disabled so nothing the
-      // server produced goes unexamined.
       this.log.debug('response body unavailable', { url, status, error: errorMessage(error) });
-      body =
-        status >= 300 && status < 400 ? await this.fetchBodyWithoutRedirects(url) : Buffer.alloc(0);
+      body = Buffer.alloc(0);
+    }
+
+    // Two ways a body goes missing: Chromium discards redirect bodies, and — seen
+    // when routing through a proxy — response.body() can return empty for a 200
+    // instead of throwing. Both are recoverable by re-fetching through the API
+    // request context (which shares the proxy and credentials); recover whenever
+    // the response should have carried content but we captured none.
+    if (body.length === 0 && shouldHaveBody(status, request.method(), headers)) {
+      const recovered =
+        status >= 300 && status < 400
+          ? await this.fetchBodyWithoutRedirects(url)
+          : await this.recoverBody(url);
+      if (recovered.length > 0) {
+        this.log.debug('recovered an empty response body via direct fetch', {
+          url,
+          status,
+          bytes: recovered.length,
+        });
+        body = recovered;
+      }
     }
 
     await this.persist(body, {
@@ -718,6 +748,23 @@ export function diffText(all: string, visible: string): string {
     .map((line) => line.replace(/\s+/g, ' ').trim())
     .filter((line) => line.length > 0 && !visibleNormalized.includes(line))
     .join('\n');
+}
+
+/**
+ * Whether a response of this status/method/headers is expected to carry a body.
+ * Used to decide when an empty capture is a real failure worth recovering versus a
+ * legitimately bodiless response (204/304, HEAD, or an explicit Content-Length: 0).
+ */
+export function shouldHaveBody(
+  status: number,
+  method: string,
+  headers: Record<string, string>,
+): boolean {
+  if (method.toUpperCase() === 'HEAD') return false;
+  if (status === 204 || status === 205 || status === 304) return false;
+  if (status < 200 || status >= 400) return false;
+  if (status >= 300) return false; // redirects are handled on their own path
+  return headers['content-length'] !== '0';
 }
 
 function delay(ms: number): Promise<void> {

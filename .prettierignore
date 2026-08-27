@@ -4,3 +4,4 @@ artifacts/
 out/
 package-lock.json
 tests/fixtures/
+*.example

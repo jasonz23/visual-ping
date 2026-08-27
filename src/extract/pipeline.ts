@@ -138,6 +138,12 @@ export function bestHitPerPassword(hits: readonly PasswordHit[]): PasswordHit[] 
  * catch-all decoders that merely prove it is present in the bytes.
  */
 function specificity(hit: PasswordHit): number {
+  // The browser-state snapshot embeds the page's own text (allText/visibleText),
+  // so a `cookies` hit sourced from it merely echoes a body password rather than
+  // revealing a storage channel. Demote it so the genuine page-body channel wins
+  // as the reported primary; the snapshot hit is still recorded under alsoSeenIn.
+  if (hit.extractor === 'cookies' && /browser state snapshot/i.test(hit.method)) return 1;
+
   const rank: Record<string, number> = {
     'raw-text': 0,
     'binary-strings': 1,
